@@ -43,8 +43,6 @@ the college's quota.}
 \item{verbose}{.}
 }
 \value{
-
-
 \code{stabsim2} returns a list with the following items.
 \item{OUT}{}
 \item{SEL}{}
