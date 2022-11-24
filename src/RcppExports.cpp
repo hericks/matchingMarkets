@@ -6,6 +6,21 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
+// eadam_cpp
+int eadam_cpp();
+RcppExport SEXP _matchingMarkets_eadam_cpp() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(eadam_cpp());
+    return rcpp_result_gen;
+END_RCPP
+}
 // runMatch
 List runMatch(Rcpp::List students, Rcpp::List programs, Rcpp::List couples);
 RcppExport SEXP _matchingMarkets_runMatch(SEXP studentsSEXP, SEXP programsSEXP, SEXP couplesSEXP) {
@@ -244,6 +259,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_matchingMarkets_eadam_cpp", (DL_FUNC) &_matchingMarkets_eadam_cpp, 0},
     {"_matchingMarkets_runMatch", (DL_FUNC) &_matchingMarkets_runMatch, 3},
     {"_matchingMarkets_stabit2Mat0", (DL_FUNC) &_matchingMarkets_stabit2Mat0, 31},
     {"_matchingMarkets_stabit2Mat1", (DL_FUNC) &_matchingMarkets_stabit2Mat1, 23},
