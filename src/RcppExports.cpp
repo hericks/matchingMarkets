@@ -12,12 +12,18 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // eadam_cpp
-int eadam_cpp();
-RcppExport SEXP _matchingMarkets_eadam_cpp() {
+List eadam_cpp(IntegerMatrix s_prefs, IntegerMatrix c_prefs, IntegerVector n_slots, String acceptance, LogicalVector consent, int max_ea_iters);
+RcppExport SEXP _matchingMarkets_eadam_cpp(SEXP s_prefsSEXP, SEXP c_prefsSEXP, SEXP n_slotsSEXP, SEXP acceptanceSEXP, SEXP consentSEXP, SEXP max_ea_itersSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(eadam_cpp());
+    Rcpp::traits::input_parameter< IntegerMatrix >::type s_prefs(s_prefsSEXP);
+    Rcpp::traits::input_parameter< IntegerMatrix >::type c_prefs(c_prefsSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type n_slots(n_slotsSEXP);
+    Rcpp::traits::input_parameter< String >::type acceptance(acceptanceSEXP);
+    Rcpp::traits::input_parameter< LogicalVector >::type consent(consentSEXP);
+    Rcpp::traits::input_parameter< int >::type max_ea_iters(max_ea_itersSEXP);
+    rcpp_result_gen = Rcpp::wrap(eadam_cpp(s_prefs, c_prefs, n_slots, acceptance, consent, max_ea_iters));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -259,7 +265,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_matchingMarkets_eadam_cpp", (DL_FUNC) &_matchingMarkets_eadam_cpp, 0},
+    {"_matchingMarkets_eadam_cpp", (DL_FUNC) &_matchingMarkets_eadam_cpp, 6},
     {"_matchingMarkets_runMatch", (DL_FUNC) &_matchingMarkets_runMatch, 3},
     {"_matchingMarkets_stabit2Mat0", (DL_FUNC) &_matchingMarkets_stabit2Mat0, 31},
     {"_matchingMarkets_stabit2Mat1", (DL_FUNC) &_matchingMarkets_stabit2Mat1, 23},
