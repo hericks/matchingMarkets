@@ -3,18 +3,18 @@
 // [[Rcpp::plugins("cpp11")]]
 using namespace Rcpp;
 
-void initialPartition(
-  const IntegerMatrix& s_prefs,
-  std::vector<int>& temp_singles,
-  std::vector<int>& final_singles
-);
-
 void partitionStudents(
   const std::vector<int>& students,
   const std::vector<int>& n_proposals_made,
   const IntegerMatrix& s_prefs,
   std::vector<int>& temp_singles,
   std::vector<int>& final_singles
+);
+
+void removeInterruptingPair(
+  IntegerMatrix& s_prefs,
+  int student,
+  int college
 );
 
 // [[Rcpp::export]]
@@ -24,7 +24,7 @@ List eadam_cpp(
   IntegerVector n_slots,
   String acceptance,
   LogicalVector consent,
-  int max_ea_iters 
+  int bound_ea_rounds
 ) {
   int n_students = s_prefs.ncol();
   int n_colleges = c_prefs.ncol();
@@ -44,9 +44,12 @@ List eadam_cpp(
   
   // vector of students that are temporarily single / definitely stay single
   std::vector<int> temp_singles, final_singles;
-  initialPartition(s_prefs, temp_singles, final_singles);
   
-  // vector of number of proposals that each student made so far (zero)
+  // vector containing all students (used for partitioning later)
+  std::vector<int> all_students(s_prefs.ncol());
+  std::iota (std::begin(all_students), std::end(all_students), 0);
+  
+  // vector of proposals made by each student (zero)
   std::vector<int> n_props(n_students);
   
   // vector of assignment maps
@@ -56,80 +59,142 @@ List eadam_cpp(
   // acceptance algorithm
   std::vector<std::map<int,int>> assignments(n_colleges);
   
-  // number of deferred-acceptance iterations
-  int iter = 0;
+  // 
+  std::map<int,int> interrupting_pairs; 
   
-  while(!temp_singles.empty()) {
-    // let all temporarily single singles make an offer
-    std::map<int, std::vector<int>> offers;
-    for(auto s : temp_singles) {
-      int next_college = s_prefs(n_props[s], s);
-      offers[next_college].push_back(s);
-      n_props[s]++;
-    }
+  // number of efficiency-adjustments
+  int n_ea_rounds = -1;
+  
+  // number of inner algorithm (immediate/deferred acceptance) iterations
+  int iter;
+  
+  do {
+    // update number of efficiency-adjustments
+    ++n_ea_rounds;
     
-    // vector of students rejected in the current round
-    std::vector<int> rejected;
+    iter = 0;
     
-    // iterate over approached colleges and decide which of the proposing
-    // students to accept
-    // (either using deferred-acceptance or immediate-acceptance)
-    for(auto const& offer : offers) {
-      int approached = offer.first;
-      std::vector<int> proposers = offer.second;
+    // vector of number of proposals that each student made so far (zero)
+    std::vector<int> n_props(n_students);
+    
+    // reset vector of assignment maps for next efficiency adjustment iteration 
+    std::vector<std::map<int,int>>(n_colleges).swap(assignments);
+    
+    // reset map of interrupting pairs
+    interrupting_pairs.clear();
    
-      if(acceptance == "deferred") {
-        // temporarily accept all student that are ranked by the college; the
-        // remaining students are rejected
-        for(auto const& p: proposers) {
-          if(c_prefs_by_student[approached].count(p)) {
-            int rank = c_prefs_by_student[approached][p];
-            assignments[approached][rank] = p;
-          } else {
-            rejected.push_back(p);
+    // partition students into vector of students that are temporarily single
+    // and vector of students that definitely stay single
+    temp_singles.clear();
+    final_singles.clear();   
+    partitionStudents(all_students, n_props, s_prefs, temp_singles, final_singles);
+    
+    // for each college whether a student was rejected in any previous round
+    std::vector<bool> is_interrupting(n_colleges, false);
+    
+    while(!temp_singles.empty()) {
+      // update number of algorithm iterations
+      ++iter;
+      
+      // let all temporarily single singles make an offer
+      std::map<int, std::vector<int>> offers;
+      for(auto s : temp_singles) {
+        int next_college = s_prefs(n_props[s], s);
+        offers[next_college].push_back(s);
+        n_props[s]++;
+      }
+      
+      // vector of students rejected in the current round
+      std::vector<int> rejected;
+      
+      // map of interrupting pairs due to this deferred-acceptance round
+      // interrupting student -> interrupting college
+      std::map<int,int> current_interrupting_pairs;
+      
+      // iterate over approached colleges and decide which of the proposing
+      // students to accept
+      // (either using deferred-acceptance or immediate-acceptance)
+      for(auto const& offer : offers) {
+        int approached = offer.first;
+        std::vector<int> proposers = offer.second;
+     
+        if(acceptance == "deferred") {
+          // map of assignments that were created this DA iteration
+          std::map<int,int> new_assignments; 
+          
+          // temporarily accept all student that are ranked by the college; the
+          // remaining students are rejected
+          for(auto const& p: proposers) {
+            if(c_prefs_by_student[approached].count(p)) {
+              int rank = c_prefs_by_student[approached][p];
+              assignments[approached][rank] = p;
+              new_assignments[rank] = p;
+            } else {
+              rejected.push_back(p);
+            }
           }
-        }
-       
-        // as long as there are more students assigned to the college as it has
-        // capacity, reject highest ranked student assigned
-        while(assignments[approached].size() > n_slots[approached]) {
-          std::map<int,int>::iterator it = prev(assignments[approached].end());
-          rejected.push_back(it->second);
-          assignments[approached].erase(it);
-        }
-      } else {
-        std::map<int,int> possible_assignments;
         
-        // students that are ranked by the college are considered; the remaining
-        // students are immediately rejected
-        for(auto const& p: proposers) {
-          if(c_prefs_by_student[approached].count(p)) {
-            int rank = c_prefs_by_student[approached][p];
-            possible_assignments[rank] = p;
-          } else {
-            rejected.push_back(p);
+          // will rejected students that were not newly assigned create an
+          // interrupting pair?
+          bool interrupting_flag = is_interrupting[approached];
+         
+          // as long as there are more students assigned to the college as it has
+          // capacity, reject highest ranked student assigned
+          while(assignments[approached].size() > n_slots[approached]) {
+            std::map<int,int>::iterator it = prev(assignments[approached].end());
+            rejected.push_back(it->second);
+           
+            is_interrupting[approached] = true;
+            if(interrupting_flag && !new_assignments.count(it->first) && consent[it->second]) {
+              current_interrupting_pairs[it->second] = approached;
+            }
+            
+            assignments[approached].erase(it);
           }
-        }
-       
-        // transfer students from possible assignment to final assignment
-        // until there is no capacity left; the remaining students are rejected
-        for(auto const& assignment: possible_assignments) {
-          if(assignments[approached].size() >= n_slots[approached]) {
-            rejected.push_back(assignment.second);
-          } else {
-            assignments[approached][assignment.first] = assignment.second;
+        } else {
+          std::map<int,int> possible_assignments;
+          
+          // students that are ranked by the college are considered; the remaining
+          // students are immediately rejected
+          for(auto const& p: proposers) {
+            if(c_prefs_by_student[approached].count(p)) {
+              int rank = c_prefs_by_student[approached][p];
+              possible_assignments[rank] = p;
+            } else {
+              rejected.push_back(p);
+            }
+          }
+         
+          // transfer students from possible assignment to final assignment 
+          // until there is no capacity left; 
+          // the remaining students are rejected
+          for(auto const& assignment: possible_assignments) {
+            if(assignments[approached].size() >= n_slots[approached]) {
+              rejected.push_back(assignment.second);
+            } else {
+              assignments[approached][assignment.first] = assignment.second;
+            }
           }
         }
       }
+      
+      // update interrupting pairs if necessary
+      if(current_interrupting_pairs.size()) {
+        interrupting_pairs = current_interrupting_pairs;
+      }
+      
+      // parition rejected students into finally / temporarily rejected students
+      temp_singles.clear();
+      partitionStudents(rejected, n_props, s_prefs, temp_singles, final_singles);
     }
     
-    // parition rejected students into finally and temporarily rejected students
-    temp_singles.clear();
-    partitionStudents(rejected, n_props, s_prefs, temp_singles, final_singles);
-   
-    // update number of algorithm iterations
-    ++iter;
-  }
+    // remove interrupters from student preferences
+    for(const auto& interrupting_pair: interrupting_pairs) {
+      int s = interrupting_pair.first, c = interrupting_pair.second;
+      removeInterruptingPair(s_prefs, s, c);
+    }
+  } while (interrupting_pairs.size() && n_ea_rounds < bound_ea_rounds);
+  
   
   // initialize, fill, and return results list
   List results;
@@ -141,24 +206,8 @@ List eadam_cpp(
   results["matchings"] = assignments;
   results["singles"] = final_singles;
   results["iters"] = iter;
+  results["n_ea_rounds"] = n_ea_rounds;
   return results;
-}
-
-void initialPartition(
-    const IntegerMatrix& s_prefs,
-    std::vector<int>& temp_singles,
-    std::vector<int>& final_singles
-) {
-  // vector of all students 
-  int n_students = s_prefs.ncol();
-  std::vector<int> students(n_students);
-  std::iota (std::begin(students), std::end(students), 0);
-
-  // vector of proposals made by each student (zero)
-  std::vector<int> n_props(n_students);
-  
-  // partition vector of all students each of whom made no proposal yet
-  partitionStudents(students, n_props, s_prefs, temp_singles, final_singles);
 }
 
 void partitionStudents(
@@ -176,4 +225,20 @@ void partitionStudents(
       final_singles.push_back(s);
     }
   }
+}
+
+void removeInterruptingPair(
+  IntegerMatrix& s_prefs, int student, int college
+) {
+  bool found = false;
+  for(int rank = 0; rank < s_prefs.nrow(); ++rank) {
+    if(s_prefs(rank, student) == college) {
+      s_prefs(rank, student) = NA_INTEGER;
+      found = true;
+    } else {
+      s_prefs(rank-found, student) = s_prefs(rank, student);
+      if(s_prefs(rank, student) == NA_INTEGER) break;
+    }
+  }
+  if(found) s_prefs(s_prefs.nrow() - 1, student) = NA_INTEGER;
 }

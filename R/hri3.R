@@ -182,6 +182,7 @@ hri3 <- function(
     s.prefs=s.prefs,
     c.prefs=c.prefs,
     iterations=res_cpp$iters,
+    efficiency_adjustment_rounds=res_cpp$n_ea_rounds,
     matchings=matchings,
     singles=vapply(res_cpp$singles, function(s) s + 1, numeric(1))
   )
