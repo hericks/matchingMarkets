@@ -133,20 +133,14 @@ List eadam_cpp(
   
   // initialize, fill, and return results list
   List results;
- 
-  // convert vector of assignment maps to list of matches
-  List matches(n_colleges);
-  for (auto it = assignments.begin(); it != assignments.end(); ++it) {
-    int c = std::distance(assignments.begin(), it);
-    std::vector<int> accepted;
-    for(std::map<int,int>::iterator mit = it->begin(); mit != it->end(); ++mit) {
-      accepted.push_back(mit->second);
-    }
-    matches[c] = accepted;
-  }
-  results["matches"] = matches;
+
+  // in R, results["matches"] will be a list of named double vectors
+  // list index <-> college
+  // entries of double vector <-> matched students
+  // names of double vector <-> ranks of matched students in college ranking
+  results["matchings"] = assignments;
   results["singles"] = final_singles;
-  results["iter"] = iter;
+  results["iters"] = iter;
   return results;
 }
 

@@ -138,41 +138,58 @@ hri3 <- function(
     consent, eaItersBound
   )
   
-  finish(
-    s.prefs, c.prefs,
-    res_cpp$iter,
-    lapply(res_cpp$matches, function(x) x + 1),
-    lapply(res_cpp$singles, function(x) x + 1),
-    short_match
+  # res_cpp$matchings is a list of named numeric vectors:
+  # 
+  # - list index -> college
+  # - numeric vector entry -> student assigned to college
+  # - numeric vector name -> rank of student assigned to college
+  matchings <- lapply(res_cpp$matchings, function(s) s + 1)
+ 
+  # short_match = TRUE : create vector of remaining capacities;
+  # short_match = FALSE: fill up colleges with student 0
+  if(short_match) {
+    free_caps <- sapply(
+      1:nColleges, 
+      function(c) nSlots[c] - length(matchings[[c]])
+    )
+  } else {
+    matchings <- sapply(
+      1:nColleges,
+      function(c) {
+        c(matchings[[c]], rep(0, nSlots[c] - length(matchings[[c]])))
+      }, 
+      simplify = FALSE)
+  }
+ 
+  # convert matchings from list of named numeric vectors to matchings data.frame
+  matchings <- data.frame(
+    student = unlist(matchings),
+    college = unlist(sapply(
+      1:nColleges, 
+      function(c) {
+        rep(c, length(matchings[[c]]))
+      },
+      simplify = FALSE
+    ))
   )
-}
+  
+  # sort matchings by student and colleges; subsequently, reset rownames
+  matchings <- with(matchings, matchings[order(student, college),])
+  rownames(matchings) <- NULL
 
-finish <- function(s.prefs,c.prefs,iter,c.hist,s.singles,short_match){ #,z=z
-  if(short_match == FALSE){
-    return(list(s.prefs=s.prefs,c.prefs=c.prefs,iterations=iter,matchings=edgefun(x=c.hist),singles=s.singles)) #,z=z
+  # create list of return values
+  res <- list(
+    s.prefs=s.prefs,
+    c.prefs=c.prefs,
+    iterations=res_cpp$iters,
+    matchings=matchings,
+    singles=vapply(res_cpp$singles, function(s) s + 1, numeric(1))
+  )
+  
+  # append vector of remaining college capacities to list of return values
+  if(short_match) {
+    res[['free_cap']] <- free_caps
   }
-  else {
-    # Format matching
-    matching <- edgefun(x=c.hist)
-    
-    free_caps <- lapply(1:ncol(c.prefs), function(col){
-      return(nrow(matching[matching$college == col & matching$student == 0,]))
-    })
-    free_caps <- data.frame(free_caps)
-    colnames(free_caps) <- 1:ncol(c.prefs)
-    
-    matching <- matching[matching$student != 0, ]
-    return(list(s.prefs=s.prefs,c.prefs=c.prefs,iterations=iter,matchings=matching,singles=s.singles, free_cap = free_caps)) #,z=z
-  }
-}
-
-## convert match matrix to edgelist
-edgefun <- function(x){
-  res <- data.frame(college = c(unlist( sapply(1:length(x), function(i){
-    rep(i,length(x[[i]]))
-  }) )),
-  student = unlist(x),
-  stringsAsFactors = FALSE)
-  #browser()
-  res <- with(res, res[order(college, student),])
+  
+  res
 }
