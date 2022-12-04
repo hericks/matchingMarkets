@@ -14,7 +14,12 @@ Imports:
     utils
 SystemRequirements: Java, C++11
 LinkingTo: Rcpp, RcppProgress, RcppArmadillo
-Suggests: knitr, ggplot2, grDevices, graphics
+Suggests: 
+    knitr,
+    ggplot2,
+    grDevices,
+    graphics,
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Title: Analysis of Stable Matchings
 Authors@R: c(person("Thilo", "Klein", role = c("aut", "cre"),
@@ -42,5 +47,6 @@ URL: http://matchingMarkets.org,
     http://klein.uk
 BugReports: https://github.com/thiloklein/matchingMarkets/issues
 License: GPL (>= 2)
-RoxygenNote: 7.2.0
+RoxygenNote: 7.2.2
 Encoding: UTF-8
+Config/testthat/edition: 3
