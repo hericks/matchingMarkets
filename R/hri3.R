@@ -85,9 +85,7 @@
 #'  set.seed(123)
 #'  hri2(nStudents=7, nSlots=c(3,3))$matchings
 #'  ##}
-
-
-
+#'  
 hri3 <- function(
     nStudents=ncol(s.prefs),
     nColleges=ncol(c.prefs), 
@@ -140,12 +138,11 @@ hri3 <- function(
     consent, eaItersBound
   )
   
-  
   finish(
     s.prefs, c.prefs,
-    res$iter,
+    res_cpp$iter,
     lapply(res_cpp$matches, function(x) x + 1),
-    res_cpp$singles,
+    lapply(res_cpp$singles, function(x) x + 1),
     short_match
   )
 }
