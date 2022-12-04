@@ -30,14 +30,15 @@ List eadam_cpp(
   int n_colleges = c_prefs.ncol();
   
   // create vector of maps storing the college preferences more efficiently
-  // key: student -> value: rank of student in college ranking
-  std::vector<std::unordered_map<int,int>> c_prefs_maps(n_colleges);
+  // (key -> value) <-> (student -> rank of student in college ranking)
+  // this allows for O(1) access of the rank of a student in a college's ranking
+  std::vector<std::unordered_map<int,int>> c_prefs_by_student(n_colleges);
   for(int c = 0; c < n_colleges; ++c) {
     for(int rank = 0; rank < n_students; ++rank) {
       if(c_prefs(rank, c) == NA_INTEGER) {
         break;
       }
-      c_prefs_maps[c][c_prefs(rank, c)] = rank;
+      c_prefs_by_student[c][c_prefs(rank, c)] = rank;
     }
   }
   
@@ -49,9 +50,13 @@ List eadam_cpp(
   std::vector<int> n_props(n_students);
   
   // vector of assignment maps
+  // for each college, a map: (key -> value)
+  // <-> (rank of temporarily assigned student in college's ranking -> student)
+  // this allows for fast decisions on which student to admit in the deferred
+  // acceptance algorithm
   std::vector<std::map<int,int>> assignments(n_colleges);
   
-  // 
+  // number of deferred-acceptance iterations
   int iter = 0;
   
   while(!temp_singles.empty()) {
@@ -63,25 +68,51 @@ List eadam_cpp(
       n_props[s]++;
     }
     
-    // iterate over approached colleges and assign proposing students
+    // vector of students rejected in the current round
     std::vector<int> rejected;
     
+    // iterate over approached colleges and decide which of the proposing
+    // students to accept
+    // (either using deferred-acceptance or immediate-acceptance)
     for(auto const& offer : offers) {
       int approached = offer.first;
       std::vector<int> proposers = offer.second;
    
       if(acceptance == "deferred") {
-        // TODO: Copy
+        // temporarily accept all student that are ranked by the college; the
+        // remaining students are rejected
+        for(auto const& p: proposers) {
+          if(c_prefs_by_student[approached].count(p)) {
+            int rank = c_prefs_by_student[approached][p];
+            assignments[approached][rank] = p;
+          } else {
+            rejected.push_back(p);
+          }
+        }
+       
+        // as long as there are more students assigned to the college as it has
+        // capacity, reject highest ranked student assigned
+        while(assignments[approached].size() > n_slots[approached]) {
+          std::map<int,int>::iterator it = prev(assignments[approached].end());
+          rejected.push_back(it->second);
+          assignments[approached].erase(it);
+        }
       } else {
         std::map<int,int> possible_assignments;
+        
+        // students that are ranked by the college are considered; the remaining
+        // students are immediately rejected
         for(auto const& p: proposers) {
-          if(c_prefs_maps[approached].count(p)) {
-            int rank = c_prefs_maps[approached][p];
+          if(c_prefs_by_student[approached].count(p)) {
+            int rank = c_prefs_by_student[approached][p];
             possible_assignments[rank] = p;
           } else {
             rejected.push_back(p);
           }
         }
+       
+        // transfer students from possible assignment to final assignment
+        // until there is no capacity left; the remaining students are rejected
         for(auto const& assignment: possible_assignments) {
           if(assignments[approached].size() >= n_slots[approached]) {
             rejected.push_back(assignment.second);
@@ -92,10 +123,11 @@ List eadam_cpp(
       }
     }
     
-    //
+    // parition rejected students into finally and temporarily rejected students
     temp_singles.clear();
     partitionStudents(rejected, n_props, s_prefs, temp_singles, final_singles);
-    
+   
+    // update number of algorithm iterations
     ++iter;
   }
   
