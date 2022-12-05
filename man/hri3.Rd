@@ -12,7 +12,7 @@ hri3(
   c.prefs = NULL,
   acceptance = "immediate",
   consent = rep(FALSE, nStudents),
-  eaItersBound = 1e+06,
+  eaItersMax = 1e+06,
   short_match = TRUE,
   seed = NULL
 )

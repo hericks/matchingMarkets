@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // eadam_cpp
-List eadam_cpp(IntegerMatrix s_prefs, IntegerMatrix c_prefs, IntegerVector n_slots, String acceptance, LogicalVector consent, int bound_ea_rounds);
-RcppExport SEXP _matchingMarkets_eadam_cpp(SEXP s_prefsSEXP, SEXP c_prefsSEXP, SEXP n_slotsSEXP, SEXP acceptanceSEXP, SEXP consentSEXP, SEXP bound_ea_roundsSEXP) {
+List eadam_cpp(IntegerMatrix s_prefs, IntegerMatrix c_prefs, IntegerVector n_slots, String acceptance, LogicalVector consent, int bound_ea_iters);
+RcppExport SEXP _matchingMarkets_eadam_cpp(SEXP s_prefsSEXP, SEXP c_prefsSEXP, SEXP n_slotsSEXP, SEXP acceptanceSEXP, SEXP consentSEXP, SEXP bound_ea_itersSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -22,8 +22,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< IntegerVector >::type n_slots(n_slotsSEXP);
     Rcpp::traits::input_parameter< String >::type acceptance(acceptanceSEXP);
     Rcpp::traits::input_parameter< LogicalVector >::type consent(consentSEXP);
-    Rcpp::traits::input_parameter< int >::type bound_ea_rounds(bound_ea_roundsSEXP);
-    rcpp_result_gen = Rcpp::wrap(eadam_cpp(s_prefs, c_prefs, n_slots, acceptance, consent, bound_ea_rounds));
+    Rcpp::traits::input_parameter< int >::type bound_ea_iters(bound_ea_itersSEXP);
+    rcpp_result_gen = Rcpp::wrap(eadam_cpp(s_prefs, c_prefs, n_slots, acceptance, consent, bound_ea_iters));
     return rcpp_result_gen;
 END_RCPP
 }

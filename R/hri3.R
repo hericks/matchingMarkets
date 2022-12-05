@@ -94,7 +94,7 @@ hri3 <- function(
     c.prefs=NULL,
     acceptance="immediate",
     consent=rep(FALSE, nStudents),
-    eaItersBound=1e6,
+    eaItersMax=1e6,
     short_match = TRUE,
     seed = NULL
 ){
@@ -135,7 +135,7 @@ hri3 <- function(
     s.prefs-1, c.prefs-1, 
     nSlots,
     acceptance,
-    consent, eaItersBound
+    consent, eaItersMax
   )
   
   # res_cpp$matchings is a list of named numeric vectors:
@@ -176,15 +176,22 @@ hri3 <- function(
   # sort matchings by student and colleges; subsequently, reset rownames
   matchings <- with(matchings, matchings[order(student, college),])
   rownames(matchings) <- NULL
+  
+  # interrupting pairs
+  interrupting.pairs = data.frame(
+    student=as.integer(names(res_cpp$interrupting_pairs))+1,
+    college=unname(res_cpp$interrupting_pairs)+1
+  )
 
   # create list of return values
   res <- list(
-    s.prefs=s.prefs,
+    s.prefs=res_cpp$s_prefs+1,
     c.prefs=c.prefs,
     iterations=res_cpp$iters,
-    efficiency_adjustment_rounds=res_cpp$n_ea_rounds,
     matchings=matchings,
-    singles=vapply(res_cpp$singles, function(s) s + 1, numeric(1))
+    singles=vapply(res_cpp$singles, function(s) s + 1, numeric(1)),
+    ea.iterations=res_cpp$ea_iters,
+    interrupting.pairs=interrupting.pairs
   )
   
   # append vector of remaining college capacities to list of return values

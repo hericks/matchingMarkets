@@ -24,7 +24,7 @@ List eadam_cpp(
   IntegerVector n_slots,
   String acceptance,
   LogicalVector consent,
-  int bound_ea_rounds
+  int bound_ea_iters
 ) {
   int n_students = s_prefs.ncol();
   int n_colleges = c_prefs.ncol();
@@ -63,14 +63,14 @@ List eadam_cpp(
   std::map<int,int> interrupting_pairs; 
   
   // number of efficiency-adjustments
-  int n_ea_rounds = -1;
+  int ea_iters = -1;
   
   // number of inner algorithm (immediate/deferred acceptance) iterations
   int iter;
   
   do {
     // update number of efficiency-adjustments
-    ++n_ea_rounds;
+    ++ea_iters;
     
     iter = 0;
     
@@ -79,6 +79,12 @@ List eadam_cpp(
     
     // reset vector of assignment maps for next efficiency adjustment iteration 
     std::vector<std::map<int,int>>(n_colleges).swap(assignments);
+    
+    // remove interrupters from previous round from student preferences
+    for(const auto& interrupting_pair: interrupting_pairs) {
+      int s = interrupting_pair.first, c = interrupting_pair.second;
+      removeInterruptingPair(s_prefs, s, c);
+    }
     
     // reset map of interrupting pairs
     interrupting_pairs.clear();
@@ -188,12 +194,7 @@ List eadam_cpp(
       partitionStudents(rejected, n_props, s_prefs, temp_singles, final_singles);
     }
     
-    // remove interrupters from student preferences
-    for(const auto& interrupting_pair: interrupting_pairs) {
-      int s = interrupting_pair.first, c = interrupting_pair.second;
-      removeInterruptingPair(s_prefs, s, c);
-    }
-  } while (interrupting_pairs.size() && n_ea_rounds < bound_ea_rounds);
+  } while(interrupting_pairs.size() && ea_iters < bound_ea_iters);
   
   
   // initialize, fill, and return results list
@@ -206,7 +207,9 @@ List eadam_cpp(
   results["matchings"] = assignments;
   results["singles"] = final_singles;
   results["iters"] = iter;
-  results["n_ea_rounds"] = n_ea_rounds;
+  results["ea_iters"] = ea_iters;
+  results["s_prefs"] = s_prefs;
+  results["interrupting_pairs"] = interrupting_pairs;
   return results;
 }
 
