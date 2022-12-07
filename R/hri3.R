@@ -29,7 +29,6 @@
 #' column containing college \code{i}'s ranking over students in decreasing order of
 #' preference (i.e. most preferred first).
 #' @param acceptance if \code{acceptance="deferred"} returns the solution found by the student-proposing Gale-Shapley deferred acceptance algorithm; if \code{acceptance="immediate"} (the default) returns the solution found by the Boston mechanism.
-#' @param short_match (Optional)  If \code{FALSE} then in the returned matching, free capacities will be indicated with 0 entries. If \code{TRUE}, free capacities will not be reported in the returned matching but an additonal data.frame is returned that contains free capacities. Defaults to \code{TRUE}.
 #' @param seed (Optional) integer setting the state for random number generation.
 #'
 #' @export
@@ -95,7 +94,6 @@ hri3 <- function(
     acceptance="immediate",
     consent=rep(FALSE, nStudents),
     eaItersMax=1e6,
-    short_match = TRUE,
     seed = NULL
 ){
   # set seed if provided
@@ -145,22 +143,6 @@ hri3 <- function(
   # - numeric vector name -> rank of student assigned to college
   matchings <- lapply(res_cpp$matchings, function(s) s + 1)
  
-  # short_match = TRUE : create vector of remaining capacities;
-  # short_match = FALSE: fill up colleges with student 0
-  if(short_match) {
-    free_caps <- sapply(
-      1:nColleges, 
-      function(c) nSlots[c] - length(matchings[[c]])
-    )
-  } else {
-    matchings <- sapply(
-      1:nColleges,
-      function(c) {
-        c(matchings[[c]], rep(0, nSlots[c] - length(matchings[[c]])))
-      }, 
-      simplify = FALSE)
-  }
- 
   # convert matchings from list of named numeric vectors to matchings data.frame
   matchings <- data.frame(
     student = unlist(matchings),
@@ -193,11 +175,6 @@ hri3 <- function(
     ea.iterations=res_cpp$ea_iters,
     interrupting.pairs=interrupting.pairs
   )
-  
-  # append vector of remaining college capacities to list of return values
-  if(short_match) {
-    res[['free_cap']] <- free_caps
-  }
   
   res
 }
